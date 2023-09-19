@@ -1,14 +1,14 @@
 #ifndef FRAMEBUFFER_H
 #define FRAMEBUFFER_H
 
-#include <stdint.h>
 #include <arialib.h>
+#include <stdbool.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdbool.h>
 
 typedef struct {
-    void* address; 
+    void* address;
     uint64_t width;
     uint64_t height;
     uint64_t pitch;

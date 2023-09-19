@@ -26,7 +26,7 @@ typedef struct {
 
     uint32_t fg;
     uint32_t bg;
-    
+
     uint8_t ansi_params[2];
     uint8_t ansi_params_i;
 } terminal;
@@ -39,5 +39,6 @@ arialib_error terminal_write_char(terminal* term, uint8_t c);
 arialib_error terminal_draw_char(terminal* term, uint8_t c, uint32_t fg, uint32_t bg, uint64_t row, uint64_t col);
 
 arialib_error terminal_set_cursor_pos(terminal* term, uint64_t row, uint64_t col);
+arialib_error terminal_draw_cursor(terminal* term, uint32_t fg, uint32_t bg, uint64_t row, uint64_t col);
 
 #endif
