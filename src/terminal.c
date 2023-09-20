@@ -1,3 +1,4 @@
+#include <stdint.h>
 #include <terminal.h>
 
 static const uint32_t terminal_color_table[] = {
@@ -17,7 +18,7 @@ static const uint32_t terminal_color_table[] = {
     0x00d670d6,
     0x0029b8db,
     0x00FFFFFF};
-arialib_error terminal_new(terminal* term, framebuffer fb, const uint8_t* font, uint64_t font_height, uint64_t font_width) {
+terminal_error terminal_new(terminal* term, framebuffer fb, const uint8_t* font, uint64_t font_height, uint64_t font_width) {
     term->fb = fb;
 
     term->rows = fb.height / font_height;
@@ -39,19 +40,19 @@ arialib_error terminal_new(terminal* term, framebuffer fb, const uint8_t* font, 
 
     memset(term->fb.address, term->bg, term->fb.size);
 
-    return ARIALIB_SUCCESS;
+    return SUCCESS;
 }
-arialib_error terminal_write_str(terminal* term, const char* str, size_t len) {
+terminal_error terminal_write_str(terminal* term, const char* str, size_t len) {
     for (size_t i = 0; i < len; i++) {
         terminal_write_char(term, str[i]);
     }
-    return ARIALIB_SUCCESS;
+    return SUCCESS;
 }
-arialib_error terminal_scroll(terminal* term) {
+terminal_error terminal_scroll(terminal* term) {
     uint64_t offset = term->fb.pitch * 16;
     memmove(term->fb.address, term->fb.address + offset, term->fb.size - offset);
     memset(term->fb.address + (term->fb.size - offset), term->bg, offset);
-    return ARIALIB_SUCCESS;
+    return SUCCESS;
 }
 /**
  * @brief Sets cursor position, without scrolling or wrapping. (Used by ANSI escape codes)
@@ -59,9 +60,9 @@ arialib_error terminal_scroll(terminal* term) {
  * @param term 
  * @param row 
  * @param col 
- * @return arialib_error 
+ * @return terminal_error 
  */
-arialib_error terminal_set_cursor_pos(terminal* term, uint64_t row, uint64_t col) {
+terminal_error terminal_set_cursor_pos(terminal* term, uint64_t row, uint64_t col) {
     if (col >= term->cols) {
         if ((int64_t)col < 0) {
             col = 0;
@@ -78,21 +79,21 @@ arialib_error terminal_set_cursor_pos(terminal* term, uint64_t row, uint64_t col
     }
     term->row = row;
     term->col = col;
-    return ARIALIB_SUCCESS;
+    return SUCCESS;
 }
-arialib_error terminal_ansi_parse(terminal* term, char c) {
+terminal_error terminal_ansi_parse(terminal* term, char c) {
     switch (c) {
     case '[':
         term->ansi_seq = CSI;
-        return ARIALIB_SUCCESS;
+        return SUCCESS;
     }
     if (c >= '0' && c <= '9') {
         term->ansi_params[term->ansi_params_i] *= 10;
         term->ansi_params[term->ansi_params_i] += (c - '0');
-        return ARIALIB_SUCCESS;
+        return SUCCESS;
     } else if (c == ';') {
         term->ansi_params_i++;
-        return ARIALIB_SUCCESS;
+        return SUCCESS;
     }
     uint64_t row = term->row;
     uint64_t col = term->col;
@@ -164,7 +165,7 @@ cleanup:
     term->ansi_params_i = 0;
     term->ansi_seq = NONE;
     term->ansi = false;
-    return ARIALIB_UNKNOWN;
+    return UNKNOWN;
 }
 /**
  * @brief Sets the position of the cursor, but has scrolling and text wrapping enabled.
@@ -172,12 +173,17 @@ cleanup:
  * @param term Terminal Object
  * @param row Row (Not the pixel, but the actual row on the terminal)
  * @param col Col (Again, not the pixel, but the actual column on the terminal)
- * @returns arialib_error 
+ * @returns terminal_error 
  */
-arialib_error terminal_set_cursor_pos_write(terminal* term, uint64_t row, uint64_t col) {
+terminal_error terminal_set_cursor_pos_write(terminal* term, uint64_t row, uint64_t col) {
     if (col >= term->cols) {
         if ((int64_t)col < 0) {
-            col = 0;
+            if (row == 0) {
+                col = 0;
+            } else {
+                col = term->cols - 1;
+            }
+            row--;
         } else {
             col = 0;
             row++;
@@ -193,16 +199,16 @@ arialib_error terminal_set_cursor_pos_write(terminal* term, uint64_t row, uint64
     }
     term->row = row;
     term->col = col;
-    return ARIALIB_SUCCESS;
+    return SUCCESS;
 }
 /**
  * @brief Writes a character to the terminal screen
  * 
  * @param term 
  * @param c 
- * @return arialib_error 
+ * @return terminal_error 
  */
-arialib_error terminal_write_char(terminal* term, uint8_t c) {
+terminal_error terminal_write_char(terminal* term, uint8_t c) {
     if (term->ansi) {
         return terminal_ansi_parse(term, c);
     }
@@ -225,10 +231,10 @@ arialib_error terminal_write_char(terminal* term, uint8_t c) {
         terminal_set_cursor_pos_write(term, term->row, term->col + 1);
         break;
     }
-    return ARIALIB_SUCCESS;
+    return SUCCESS;
 }
 
-arialib_error terminal_draw_char(terminal* term, uint8_t c, uint32_t fg, uint32_t bg, uint64_t row, uint64_t col) {
+terminal_error terminal_draw_char(terminal* term, uint8_t c, uint32_t fg, uint32_t bg, uint64_t row, uint64_t col) {
     for (uint64_t height = 0; height < term->font_height; height++) {
         for (uint64_t width = 0; width < term->font_width; width++) {
             if ((term->font[(c * term->font_height) + height] & (0x80 >> width))) {
@@ -238,14 +244,14 @@ arialib_error terminal_draw_char(terminal* term, uint8_t c, uint32_t fg, uint32_
             }
         }
     }
-    return ARIALIB_SUCCESS;
+    return SUCCESS;
 }
-arialib_error terminal_draw_cursor(terminal* term, uint32_t fg, uint32_t bg, uint64_t row, uint64_t col) {
+terminal_error terminal_draw_cursor(terminal* term, uint32_t fg, uint32_t bg, uint64_t row, uint64_t col) {
     (void)bg;
     for (uint64_t height = 12; height < term->font_height; height++) {
         for (uint64_t width = 0; width < term->font_width; width++) {
             framebuffer_set_pixel(&term->fb, (col * term->font_width) + width, (row * term->font_height) + height, fg);
         }
     }
-    return ARIALIB_SUCCESS;
+    return SUCCESS;
 }
